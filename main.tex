@@ -137,7 +137,15 @@ This paper mainly investigates the direction of image semantic segmentation, int
     \end{figure}
 \end{itemize}
 
-\chapter{图像语义分割算法描述}
+\section{综述结构}
+本综述主要包含如下内容：
+\begin{itemize}
+	\item 第一章为引言部分，主要介绍了图像分割的评价指标以及图像分割方面的数据集；
+	\item 第二章介绍了图像语义分割方向近几年来最经典的几种算法，并且在每一小节都与之前算法的实验结果进行了对比，从中我们可以直观的感受到图像分割实验效果的一步步提升；
+	\item 第三章主要从2018年图像分割方向的论文出发，学习一下目前图像分割算法的研究方向；
+	\item 第四章为对图像分割算法的总结以及对未来研究方向的展望。
+\end{itemize}
+\chapter{基于深度学习的经典图像语义分割算法}
 在深度学习方法流行之前，TextonForest和基于随机森林分类器等语义分割方法是用得比较多的方法。不过在深度卷积网络流行之后，深度学习方法比传统方法提升了很多，所以这里就不详细讲传统方法了。最初的学习方法应用于图像分割就是Patch classification。Patch classification方法，顾名思义，图像是切成块喂给深度模型的，然后对像素进行分类。使用图像块的主要原因是因为全连接层需要固定大小的图像。由于在全卷积网络出现之后对语义分割的效果提升了很多，因此在此也不再详述Patch Classification的方法。
 
 \section{全卷积网络(FCN)}
@@ -212,7 +220,7 @@ FCN将传统CNN中的全连接层转化为一个个的卷积层。如图\ref{fcn
 \end{figure}
 
 \section{DeepLab}
-从FCN的实验结果图中可以看出来，虽然分割的整体区域比较正确了，但是分割效果还是比较粗糙，细节不明显。DeepLab v1(文章\cite{chen2014semantic})使用Hole算法(Atrous Algorithm)和条件随机场(CRF)来进一步的提升分割效果，其算法结构图如图\ref{deeplabv1}所示。DeepLab v1收录于ICLR 2015，是DeepLab系列的第一篇文章，之后我们还会介绍该系列的后续文章。
+从FCN的实验结果图中可以看出来，虽然分割的整体区域比较正确了，但是分割效果还是比较粗糙，细节不明显。DeepLab v1(文章\cite{chen2014semantic}，发表于ICLR2015)使用Hole算法(Atrous Algorithm)和条件随机场(CRF)来进一步的提升分割效果，其算法结构图如图\ref{deeplabv1}所示。DeepLab v1收录于ICLR 2015，是DeepLab系列的第一篇文章，之后我们还会介绍该系列的后续文章。
 
 \begin{figure}[!h]
 	\centering
@@ -267,16 +275,111 @@ E(x)=\sum_i \psi_i(x_i)+\sum_{i,j} \psi_{i,j}(x_i,x_j)
 	\caption{\label{crf1}使用CRF细化分割效果。可以看出，随着迭代次数的增加，图像分割的效果逐渐增强}
 \end{figure}
 
-\subsection{网络结构}
+\subsection{实验结果}
+DeepLab综合了之前出现的全卷积网络FCN，提出了带洞卷积，在此我们列出与FCN算法在PASCAL VOC数据集上实验效果对比如图\ref{deeplabvsfcn}所示。从图中可以看出，DeepLab在边缘部分的分割效果相比于FCN有了进一步的提升。
+
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.85\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/deeplabvsfcn1}
+	\end{minipage}
+	\begin{minipage}[t]{0.85\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/deeplabvsfcn}
+	\end{minipage}
+	\caption{\label{deeplabvsfcn}DeepLab与FCN在PASCAL VOC数据集上的实验结果对比图。上图为测试指标的对比示意图。下图为实验效果对比图：第一行为原始图像，第二行为ground truth，第三行为FCN分割效果图，第四行为DeepLab分割效果图}
+\end{figure}
 
 \section{DilatedConv}
+论文Multi-Scale Context Aggregation by Dilated Convolutions\cite{yu2015multi}是收录于ICLR 2016的一篇文章，提出了一种卷积网络模块，可以聚合多尺度的上下文信息，而不会丢失分辨率或重复分析重缩放的图像。该模块基于空洞卷积，其支持指数级扩展感受野而不损失分辨率或覆盖范围。
+
+\subsection{空洞卷积}
+与上一节DeepLab中提出的带孔卷积类似，主要目的是增加感受野。传统卷积操作增加感受野的速度是很慢的，所以一般会在卷积层之后增加池化层进一步增加感受野，但是增加池化层之后会使得图像进行了下采样，使得图像丢失了很多细节信息。
+
+设$F:\mathbb{Z}^2\to \mathbb{R}$是一个离散函数，令$\Omega_r=[-r,r]^2\cap \mathbb{Z}^2$，再设$k:\Omega_r\to \mathbb{R}$是一个大小为$(2r+1)^2$的离散滤波器。因此传统的离散卷积操作可以$*$描述为：
+\begin{equation}
+(F*k)(\mathbf{p})=\sum_{\mathbf{s}+\mathbf{t}=\mathbf{p}}F(\mathbf{s})k(\mathbf{t})
+\end{equation}
+对其进行拓展，我们可以定义膨胀系数为$l$的空洞卷积运算$*_l$如下：
+\begin{equation}
+(F*_lk)(\mathbf{p})=\sum_{\mathbf{s}+l\mathbf{t}=\mathbf{p}}F(\mathbf{s})k(\mathbf{t})
+\end{equation}
+
+如图\ref{dial}所示展示了膨胀系数为2的空洞卷积操作的示意图，与传统卷积相比，可以看出空洞卷积的卷积核作用于feature map上的物理位置是不连续的。
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.3\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dilation-00.jpg}
+	\end{minipage}
+	\begin{minipage}[t]{0.3\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dilation-01.jpg}
+	\end{minipage}
+	\begin{minipage}[t]{0.3\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dilation-02.jpg}
+	\end{minipage}
+	\caption{\label{dial}空洞卷积操作示意图}
+\end{figure}
+
+图\ref{dial2}展示了空洞卷积带来感受野变化的示意图。(a)表示普通的卷积，卷积核为$3\times3$，感受野也为 $3\times3$，较小;(b) 表示扩张系数为2 的空洞卷积，卷积核为$3\times3$，但是感受野有$7\times7$，比之前大了一点;(c) 表示扩张系数为 4 的空洞卷积，卷积核为$3\times3$，但是感受野有$15\times15$，更大了。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/dilateconv}
+	\caption{\label{dial2}空洞卷积感受野变化示意图}
+\end{figure}
+\subsection{网络结构}
+
+DilatedConv的网络结构分为两个模块：front-end模块和Context模块。front-end模块是在VGG\upcite{simonyan2014very}的基础上进行修改得到的，该模块的作用是为了产生feature map为context模块作用。图\ref{deeplabNet}展示了DilatedConv网络结构和原始VGG网络结构的对比。主要进行了如下几点修改：
+\begin{itemize}
+	\item 与全卷积网络FCN一样，DilatedConv也将VGG中的全连接层修改为卷积层；
+	\item 去掉了最后两个池化层；
+	\item 将后续的卷积修改为带孔卷积；
+	\item 使用ImageNet上预训练的参数进行Finetune。
+\end{itemize}
+
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/vgg16}
+		%		\caption{VGG网络结构图}
+	\end{minipage}
+	\begin{minipage}[t]{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/vgg16dial}
+		%		\caption{修改之后DeepLab网络结构图}
+	\end{minipage}
+	\caption{\label{deeplabNet}VGG网络结构示意图和修改之后DilatedConv网络结构实体图的对比图。左图为VGG网络的原始结构示意图，右图为修改之后的DilatedConv网络结构示意图}
+\end{figure}
+
+Context模块采用front-end模块输出的feature map作为输入，使用空洞卷积组成8层网络结构，front-end模块和Context模块连接示意图如图\ref{dilate}所示，左图表示front-end模块，可以看出最后输出$64\times64\times C$的feature map，右图表示Context模块，输入为$64\times64\times C$的feature map。
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/frontmodule}
+		%		\caption{VGG网络结构图}
+	\end{minipage}
+	\begin{minipage}[t]{0.45\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/Contextmodule}
+		%		\caption{修改之后DeepLab网络结构图}
+	\end{minipage}
+	\caption{\label{dilate}DilatedConv网络front-end模块和Context模块示意图。}
+\end{figure}
+
+\subsection{实验结果}
 
 \section{DeepLab v2}
 
 \section{PSPNet}
 
 \section{DeepLab v3}
-\chapter{方法结果对比}
+
+\chapter{最新图像语义分割算法}
 
 \chapter{总结}
 
