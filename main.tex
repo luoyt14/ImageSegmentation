@@ -372,15 +372,225 @@ Context模块采用front-end模块输出的feature map作为输入，使用空�
 \end{figure}
 
 \subsection{实验结果}
+在此，我们将DilatedConv算法的结果与之前提到的FCN和DeepLab进行对比，如图\ref{dilateconv}所示，上图展示了三种算法在PascalVOC数据集上meanIoU的对比情况，可以看出，Dilatedconv算法相比于FCN和DeepLab算法有了进一步的提升，下图表示分割效果的直观对比图，从中我们也能较为清楚的看出，Dilatedconv算法的分割效果有了更进一步的提升。
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.95\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dilatedconv2}
+	\end{minipage}
+	\begin{minipage}[t]{0.95\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dilatedconv1}
+	\end{minipage}
+	\caption{\label{dilateconv}DilatedConv算法与FCN、DeepLab算法结果对比图}
+\end{figure}
 
 \section{DeepLab v2}
+DeepLab v2(DeepLab: Semantic Image Segmentation with Deep Convolutional Nets, Atrous Convolution, and Fully Connected CRFs)\upcite{chen2018deeplab}是DeepLab系列的第二篇文章，最早版本于2016年6月在arXiv上发表，被TPAMI 2017收录。他依然使用了之前提到的全卷积网络、空洞卷积、条件随机场等算法，相比于DeepLab v1，他提出了空洞空间卷积池化金字塔(atrous spatial pyramid pooling (ASPP))，以多尺度的信息得到更强健的分割结果。ASPP并行的采用多个采样率的空洞卷积层来探测，以多个比例捕捉对象以及图像上下文。除此之外，DeepLab v2基础网络结构由VGG16转为ResNet，使用了不同的学习策略，并在使用在MS-COCO数据集上预训练的参数进行finetune。图\ref{deeplabv2}展示了DeepLab v2算法的结构。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/deeplabv2}
+	\caption{\label{deeplabv2}DeepLab v2算法结构示意图}
+\end{figure}
+
+\subsection{ASPP模块}
+受SPPNet中SPP模块的启发，它指出在任意尺度的区域，可以用从单个尺度图像中进行重采样提取的卷积特征进行准确有效地分类。我们用不同采样率的多个并行的空洞卷积实现了他们的方案的一个变体。并行的采用多个采样率的空洞卷积提取特征，再将特征融合，类似于空间金字塔结构。图\ref{aspp1}和图\ref{aspp2}展示了ASPP模块和ASPP模块在网络中结构的示意图。
+
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.4\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/aspp1.png}
+		\caption{\label{aspp1}ASPP模块示意图}
+	\end{minipage}
+	\begin{minipage}[t]{0.4\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/aspp2.png}
+		\caption{\label{aspp2}ASPP结构示意图}
+	\end{minipage}
+\end{figure}
+
+\subsection{实验结果}
+DeepLab v2融合了之前算法所提到的模块并且加入了新的ASPP模块，使得分割效果有了进一步的提升。图\ref{deeplabv2res}展示了DeepLab v2算法与之前出现的图像分割算法在PASCAL VOC2012测试集上mIoU的对照表格，从中我们可以看出来，DeepLab v2算法的mIoU值相比于之前的算法都高，因此，其分割效果也得到了进一步的提升。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{images/deeplabv2.jpg}
+	\caption{\label{deeplabv2res}DeepLab v2算法与之前出现的图像分割算法在PASCAL VOC2012测试集上mIoU的对照表}
+\end{figure}
 
 \section{PSPNet}
+论文Pyramid Scene Parsing Network\upcite{DBLP:journals/corr/ZhaoSQWJ16}是CVPR2017收录的关于场景解析的文章，拿下了2016年的ImageNet比赛中scene parsing任务的冠军，也可以用于做图像语义分割。这篇文章出发点是在语义分割算法中引入更多的上下文信息（context information）， 这样能够避免许多误分割，PSPNet在FCN算法的基础上引入更多上下文信息是通过全局均值池化操作（global average pooling）和特征融合实现的，因此特征呈金字塔结构，这也是论文名叫pyramid的原因。
+
+\subsection{算法结构}
+图\ref{pspnet1}展示的PSPNet算法结构示意图。首先输入图像经过一个特征提取网络提取特征，这部分作者采用的是添加了空洞卷积的ResNet网络，提取到的特征（具体而言stride=8）作为后面pyramid pooling模块的输入。在pyramid pooling模块中构建了深度为4的特征金字塔，不同深度的特征是基于输入特征通过不同尺度的池化操作得到的，池化的尺度是可以调整的，这篇文章中给出的池化后的特征尺寸分别是$1\times1$、$2\times2$、$3\times3$和$6\times6$。然后通过一个$1\times1$卷积层将特征维度缩减为原来的1/4，最后将这些金字塔特征直接上采样到与输入特征相同尺寸，然后和输入特征做合并，也就是concat操作得到最终输出的特征图。
+
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/pspnet1.jpg}
+	\caption{\label{pspnet1}PSPNet算法结构示意图}
+\end{figure}
+\subsection{实验结果}
+图\ref{pspnet}展示PSPNet和FCN在数据集ADE20k上的实验效果对比，从中可以看出，FCN的分割效果存在着很多的误分割，而PSPNet减少了很多误分割。第一行中FCN算法误将船分割成车，显然一辆车在水上的概率是很小的，这种是属于明显不匹配的误分割。第二行中FCN算法误将摩天大厦分割成建筑物，摩天大厦和建筑物这两个类别本身是比较接近的，这种是属于类别相近的误分割，这部分个人认为是和数据集相关的。第三行中FCN算法误将枕头分割成床，枕头本身区域较小，而且纹理和床较为接近，这种是属于难以觉察的误分割。作者认为这些误分割都可以通过引入更多的上下文信息进行解决，当分割层有更多全局信息时，出现上述几种误分割的概率就会相对低一些，这种思想目前在许多图像领域都有所应用，而引入更多上下文信息的方式也很多，比如：1、增大分隔层的感受野，这种方式是最直观的，视野越广，看到的东西也越多，而增大感受野也有许多方式，比如空洞卷积（dilated convolution），这是在deeplab算法上成功应用的实现方式，另外PSPNet的全局均值池化操作也是增加感受野的一种方式。2、深层特征和浅层特征的融合，增加浅层特征的语义信息，这样在浅层进行分割时就有足够的上下文信息，同时也有目标的细节信息，这种做法早在FCN中就有了，但是包括融合策略和分割层的选择都有一定的优化空间。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/pspnet.jpg}
+	\caption{\label{pspnet}PSPNet和FCN在数据集ADE20k上的实验效果对比}
+\end{figure}
+
+图\ref{pspnet2}展示了PSPNet和图像分割其他算法在PASCAL VOC 2012测试集上结果比较，表格下半部分表示使用了MS-COCO数据集上预训练的参数进行finetune的结果，可以看出，PSPNet相比于之前出现的算法分割效果的指标有了进一步的提升。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/pspnet2.jpg}
+	\caption{\label{pspnet2}PSPNet和图像分割其他算法在PASCAL VOC 2012测试集上结果比较}
+\end{figure}
 
 \section{DeepLab v3}
+DeepLab v3(Rethinking Atrous Convolution for Semantic Image Segmentation)\upcite{chen2017rethinking}是DeepLab系列的第三篇文章，最早在arXiv上发布于2017年6月。相比于之前的算法，主要有以下几点改进：
+\begin{itemize}
+	\item 提出了更通用的框架，适用于任何网络；
+	\item 复制了ResNet最后的block并且级联起来；
+	\item 在ASPP模块中使用BN层，并且有了新的ASPP结构；
+	\item 取消了后续的DenseCRF，减少了训练时间
+\end{itemize}
+
+\subsection{级联模块}
+如图\ref{deeplabv3}所示，复制ResNet最后一个block的多个副本，并且级联起来，图\ref{deeplabv3}中的block5-7是block4的副本。每个block中包含三个卷积(MultiGrid)，每个block中最后一个卷积的步长为2(最后一个block除外)，为了维持原图尺寸，使用不同采样率的空洞卷积来代替原来的卷积。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/deeplabv3.png}
+	\caption{\label{deeplabv3}级联模块使用空洞卷积和不使用空洞卷积的示意图}
+\end{figure}
+
+\subsection{新的ASPP模块}
+相比于原ASPP模块有如下改变：
+\begin{itemize}
+	\item ASPP中应用了BN层；
+	\item 随着采样率的增加，卷积核中有效的权重减小了；
+	\item 使用模型最后的feature map做全局平均池化；
+	\item 包括一个$1\times 1$的卷积和3个$3\times 3$采样率分别为(6,12,18)的空洞卷积，并且每个卷积都有BN层和一个全局平均池化层；
+	\item 所有的分支通过$1\times 1$的卷积级联起来。
+\end{itemize}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{images/asppnew.png}
+	\caption{\label{asppnew}新的ASPP模块}
+\end{figure}
+
+\subsection{实验结果}
+图\ref{result0}展示了DeepLab v3和之前算法在PASCAL VOC 2012测试集上图像分割性能指标的对比表格，可以看出，DeepLab v3相比于之前的算法，分割的效果有了更进一步的提升，同时，由于其并没有使用CRF，所以训练时间也比DeepLab v1和v2少了很多，因此，DeepLab v3效果的提升是比较大的。图\ref{result1}展示了DeepLab v3在PASCAL VOC数据集上分割效果示意图，可以看出分割的效果相比于最初的FCN已经有了很大的提升，虽然没有使用CRF，但是细节部分分割效果也非常好。
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{images/result0.png}
+	\caption{\label{result0}PASCAL VOC 2012实验结果对比}
+\end{figure}
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{images/allresults.png}
+	\caption{\label{result1}DeepLab v3在PASCAL VOC数据集上分割效果示意图}
+\end{figure}
 
 \chapter{最新图像语义分割算法}
+上一章主要研究了近几年基于深度学习的图像语义分割算法，并对实验结果进行了对比。在本章主要研究2018年图像分割领域的CVPR、ECCV的文章，调研一下目前图像分割领域的前沿方向。
 
+\section{Depth-aware CNN}
+Depth-aware CNN for RGB-D Segmentation\upcite{wang2018depth} 是ECCV 2018上关于图像语义分割的一篇论文，针对RGB-D的图像提出了一种新的算法。
+
+此前关于RGB-D图像的分割方法主要有：
+\begin{itemize}
+	\item 使用全卷积网络FCN将RGB信息和Depth信息使用两个独立的CNN来进行处理。这样处理会使得参数量和训练时间变为单个CNN的两倍，并且像素之间的关联也因此变弱。
+	\item 使用3D networks来处理深度信息，但是这样操作会使得计算复杂度提升很多。
+\end{itemize}
+这篇论文提出了一种使用2D CNN来处理RGB-D图像语义分割的算法。为了解决像素之间深度信息关联性以及计算复杂度，参数量过多的问题，算法主要采用以下3个方式来解决：
+\begin{itemize}
+	\item 2D CNN。使用传统的2D卷积神经网络结构不引入新的变量可以解决参数量过多、计算量过大的问题；
+	\item depth-aware convolution。定义一种新的卷积方式来处理像素间深度信息关联问题；
+	\item depth-aware average pooling。类似于depth-aware convolution，定义一种新的均值池化方式来处理像素间关联的问题。
+\end{itemize}
+
+\subsection{Depth-aware Convolution}
+图\ref{sconv}所示表示的是正常的卷积操作，按照式(\ref{sconv1})的公式进行计算。其中$\mathcal{R}$是$\mathrm{p}_0$的邻域，$\mathrm{w}$是卷积核。
+	\begin{equation}
+	\label{sconv1}
+	\mathrm{y}(\mathrm{p}_0)=\sum_{\mathrm{p}_n\in \mathcal{R}}\mathrm{w}(\mathrm{p}_n)\cdot \mathrm{x}(\mathrm{p}_0+\mathrm{p}_n)
+	\end{equation}
+	图\ref{dconv}所示表示的是Depth-aware的卷积操作，按照式(\ref{dconv:eq})的公式进行计算。
+	\begin{equation}
+	\label{dconv:eq}
+	\mathrm{y}(\mathrm{p}_0)=\sum_{\mathrm{p}_n\in \mathcal{R}}\mathrm{w}(\mathrm{p}_n)\cdot \mathrm{F_D}(\mathrm{p}_0,\mathrm{p}_0+\mathrm{p}_n)\cdot\mathrm{x}(\mathrm{p}_0+\mathrm{p}_n)
+	\end{equation}
+	其中$\mathrm{F_D}$表示像素之间深度信息的关联，如式(\ref{depthFunction})所示。
+	\begin{equation}
+	\label{depthFunction}
+	\mathrm{F_D}(\mathrm{p}_i,\mathrm{p}_j)=\exp(-\alpha|\mathrm{D}(\mathrm{p}_i)-\mathrm{D}(\mathrm{p}_j)|)
+	\end{equation}
+	
+\begin{figure}[h]
+	\centering
+	\begin{minipage}[t]{0.4\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/sconv.png}
+		\caption{\label{sconv}传统的卷积操作}
+	\end{minipage}
+	\begin{minipage}[t]{0.4\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dconv.png}
+		\caption{\label{dconv}depth-aware卷积操作}
+	\end{minipage}
+\end{figure}
+\subsection{Depth-aware Average Pooling}
+与Depth-aware卷积类似，Depth-aware平均值池化也引入了深度信息。图\ref{savg}所示表示的是正常的平均值池化操作，按照式(\ref{savg1})的公式进行计算。其中 $\mathcal{R}$是$\mathrm{p}_0$的邻域。
+\begin{equation}
+\label{savg1}
+\mathrm{y}(\mathrm{p}_0)=\frac{1}{|\mathcal{R}|}\sum_{\mathrm{p}_n\in \mathcal{R}} \mathrm{x}(\mathrm{p}_0+\mathrm{p}_n)
+\end{equation}
+图\ref{davg}所示表示的是Depth-aware的平均值池化操作，按照式(\ref{davg:eq})的公式进行计算，其中$\mathrm{F_D}$也表示式(\ref{depthFunction})所示的像素之间深度信息的关联。
+\begin{equation}
+\label{davg:eq}
+\mathrm{y}(\mathrm{p}_0)=\frac{1}{|\mathcal{R}|}\sum_{\mathrm{p}_n\in \mathcal{R}} \mathrm{F_D}(\mathrm{p}_0,\mathrm{p}_0+\mathrm{p}_n)\cdot\mathrm{x}(\mathrm{p}_0+\mathrm{p}_n)
+\end{equation}
+\begin{figure}[h]
+	\centering
+	\begin{minipage}[t]{0.4\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/savg.png}
+		\caption{\label{savg}传统的均值池化操作}
+	\end{minipage}
+	\begin{minipage}[t]{0.4\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/davg.png}
+		\caption{\label{davg}depth-aware均值池化操作}
+	\end{minipage}
+\end{figure}
+\subsection{网络结构}
+本算法使用DeepLab作为baseline，使用了VGG16和ResNet-15的网络结构，将其中的卷积操作改为式\ref{dconv:eq}中的卷积操作，将其中的均值池化操作改为式(\ref{davg:eq})中的均值池化操作。网络结构如图\ref{arch}所示。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.9\textwidth]{images/arch.png}
+	\caption{\label{arch}DeepLab和DCNN使用VGG16的结构}
+\end{figure}
+
+\subsection{实验结果}
+本篇论文将提出的算法与DeepLab的baseline在NYUv2\upcite{silberman2012indoor}数据集上进行测试，NYUv2数据集包括1449像素集标注的RGB-D图像，实验按照40个class，将数据划分为训练集：795张图像和测试集：654张图像进行实验得到如图\ref{res1}和图\ref{res2}所示的结果。从图\ref{res1}中可以看出，修改了卷积操作和均值池化操作之后，在具有深度信息的图片上分割指标相比于上一章的DeepLab网络有了很大的提升。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{images/res1.png}
+	\caption{\label{res1}DeepLab和DCNN在评价指标上的对比结果}
+\end{figure}
+
+从图\ref{res2}中可以直观的看出，加入了深度信息的Depth-aware卷积和Depth-aware均值池化使得图像分割效果有了很大的提升。从中我们也能看出，当我们能够获得的先验信息更多的时候，选择能够利用较多信息的算法可以为我们的识别算法带来很大的提升。
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{images/res2.png}
+	\caption{\label{res2}DeepLab和DCNN在测试集上的效果图}
+\end{figure}
+
+\section{}
 \chapter{总结}
 
 
