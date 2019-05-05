@@ -591,8 +591,173 @@ Depth-aware CNN for RGB-D Segmentation\upcite{wang2018depth} 是ECCV 2018上关�
 	\caption{\label{res2}DeepLab和DCNN在测试集上的效果图}
 \end{figure}
 
+\section{DFN}
+论文Learning a Discriminative Feature Network for Semantic Segmentation\cite{yu2018learning}是旷世face++提出的一篇语义分割的论文，是CVPR2018上的文章。本文认为，许多现存的语义分割方法虽然获得了先进的表现，但是这些方法存在没有使用discriminative features的情况下依然存在两个方向的挑战：
+\begin{itemize}
+	\item \textbf{intra-class inconsistency}：类内不一致。表示一个区域内，有着相同的语义标签，但是预测结果有所不同。
+	\item \textbf{inter-class indistinction}：类间相似性。这表示两个相邻的区域，有着类似的外表，但是语义标签不同。
+\end{itemize}
+
+如图\ref{dfn}所示，上面三张图显示的是类内不一致的现象，从图中可以看出，奶牛的身上有一块和牛身上别的位置很不协调（模型认为这块区域不该出现在牛身上），于是就把该区域判别为其他类了，但事实上这块区域仍然属于奶牛。这就是类内不一致导致的。本来都属于一个语义label，但是因为差异性大导致模型的错误判断。下面三张图显示的是类间相似的现象，从图中可以看出，显示屏和主机箱形状、特征等有一定的相似之处，然后模型就把这两个不同的类别归类带一类去了，这当然也是有问题的，原因是类间的相似。类与类之间存在相似的特征，使得将语义信息不同的类别分到一类。
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=\textwidth]{images/dfn}
+	\caption{\label{dfn}图像语义分割中类内不一致和类间相似现象示意图}
+\end{figure}
+
+本文提出了两个子网络来解决上述问题：
+\begin{itemize}
+	\item \textbf{Border Net}：用于解决相邻的不同标签的目标具有相似性导致分类到一类的问题；
+	\item \textbf{Smooth Net}：用于解决带有同一语义标签的目标因为局部区域的不一致导致分成多类的情况。
+\end{itemize}
+
+\subsection{网络结构}
+整体的网络结果如图\ref{dfnnet}所示，整体可以看做由三部分组成：
+\begin{itemize}
+	\item 中间主干部分使用ResNet-101；
+	\item 左侧RRB模块的堆叠或者并列结构组成Border Network子网络；
+	\item 右侧RRB模块和CAB模块的混合使用组成Smooth Network子网络。
+\end{itemize}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/dfnnet}
+	\caption{\label{dfnnet}DFN整体网络结构示意图}
+\end{figure}
+
+\subsubsection{RRB模块}
+RRB模块如图\ref{rrb}所示，从整体网络结构图和RRB模块图中可以看出，RRB本质上就是一个残差模块，类似于ResNet中的残差模块。由此组成的Border Network用来显示地用边界label监督网络以期望能将边界两边的类的特征差异性被放大。所以它的输出是各个目标的边界logits。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/rrb}
+	\caption{\label{rrb}RRB模块示意图}
+\end{figure}
+
+\subsubsection{CAB模块}
+CAB模块如图\ref{cab}所示，CAB模块本质上也是一种注意力机制，在全卷积的网络结构中，输出的是一个分数映射，每一个值代表了像素类别的概率，如式(\ref{eq3})所示，其中$k\in {1,2,\cdots,K}$，$K$代表通道数。然后使用softmax函数得到概率，概率最大的类别便是该像素的类别。
+\begin{equation}
+\label{eq3}
+y_k=F(x;w)=\sum_{i=1,j=1}^{D}w_{i,j}x_{i,j}
+\end{equation}
+
+在CAB模块中，假设某patch预测的类别是$y_0$，但是真实类别为$y_1$，所以引入了一个参数$\alpha$可以将概率最大的类别由$y_0$改变为$y_1$，如式(\ref{eq4})所示，其中$\alpha=Sigmoid(x;w)$。由此公式可以看出，CAB模块可以通过通道注意力模块对通道加权，用于选择特征。
+\begin{equation}
+\label{eq4}
+\bar{y}=\alpha y=\left[\begin{array}{c}
+\alpha_1 \\
+\vdots \\
+\alpha_K
+\end{array}\right]\cdot\left[\begin{array}{c}
+y_1 \\
+\vdots \\
+y_K
+\end{array}\right]=\left[\begin{array}{c}
+\alpha_1w_1 \\
+\vdots \\
+\alpha_Kw_K
+\end{array}\right]\times\left[\begin{array}{c}
+x_1 \\
+\vdots \\
+x_K
+\end{array}\right]
+\end{equation}
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/cab}
+	\caption{\label{cab}CAB模块示意图}
+\end{figure}
+
+\subsection{实验结果}
+从图\ref{dfnres2}中可以看出，本文提出的方法超越了之前提到的主流方法，并且，在增加RRB和CAB模块之后分割效果有明显的改善。从图\ref{dfnres1}中也可以看出，在增加Border Net子网络和Smooth Net子网络之后分割效果有很大的提升。
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dfnres1}
+	\end{minipage}
+	\begin{minipage}[t]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dfnres2}
+	\end{minipage}
+	\caption{\label{dfnres2}在PASCAL VOC数据集实验结果数据}
+\end{figure}
+
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dfnres3}
+	\end{minipage}
+	\begin{minipage}[t]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/dfnres4}
+	\end{minipage}
+	\caption{\label{dfnres1}在PASCAL VOC数据集上分割效果图}
+\end{figure}
+
+
+\section{DANet}
+论文Dual Attention Network for Scene Segmentation\cite{fu2018dual}是CVPR 2019上的文章。本篇文章提出了一种使用注意力机制来提高图像语义分割效果的算法，达到了state-of-the-art的水平，主要有两个创新的模块：
+\begin{itemize}
+	\item \textbf{Position attention module}：捕获特征图的任意两个位置之间的空间依赖，对于某个特定的特征，被所有位置上的特征加权和更新。权重为相应的两个位置之间的特征相似性。因此，任何两个现有相似特征的位置可以相互贡献提升，而不管它们之间的距离。
+	\item \textbf{Channel attention module}：捕获任意两个通道之间的相互依赖，利用所有通道的加权和更新某个通道的值。
+\end{itemize}
+
+\subsection{网络结构}
+如图\ref{danet}所示的为DANet设计的网络结构示意图，左侧ResNet部分使用了上一章提到的带有空洞卷积的全卷积网络，在ResNet之后引入两个注意力机制的模块，最后将两个模块的结果进行sum，得到最终的结果。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/danet}
+	\caption{\label{danet}DANet网络结构示意图}
+\end{figure}
+
+\subsection{Position attention module(PAM)}
+如图\ref{pam2}所示是DANet中Position Attention模块的示意图，上下文关系对于场景理解是重要的，旨在捕获全局依赖而无论距离位置。为了建模更丰富的局部上下文依赖，提出PAM模块，编码更宽的上下文依赖到局部特征。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/pam2}
+	\caption{\label{pam2}DANet Position attention module 示意图}
+\end{figure}
+具体地，对于网络输出的局部特征$A(C\times H\times W)$，首先利用三个卷积层后得到$B,C,D$三个feature map。然后，对$B,C,D$分别reshape到$(C\times N)$，然后将$B$的转置与$C$相乘后，再通过softmax得到spatial attention map $S(N,N)$，接着，将$S$的转置与$D$矩阵乘后，将结果reshape到$(C\times H\times W)$，乘以一个尺度因子后再加上原始输入图像得到最后的输出map $E$。其中，$S$矩阵的各个元素计算如式(\ref{eq_s})所示，$s_{ji}$表示位置$i$对位置$j$的影响。求出的$S$矩阵相当于一个attention，它的每一行计算的是，所有像素与某个像素之间的依赖关系，使用softmax的作用是类似于分类，softmax值越大，说明更可信。而相对的依赖性也更强。因此，S矩阵的所有行表示了像素与其他像素的依赖关系。注意：在计算$S$时，某个像素特征值使用的是通道维度的值，不是单一的某个通道。最后将attention与原始map相乘，即将所有位置的加权和更新原像素特征值，相当于利用学习到的长距离依赖关系，作用于原始map，选择性的加强局部特征的全局依赖关系。
+\begin{equation}
+\label{eq_s}
+s_{ji}=\frac{\exp(B_i\times C_i)}{\sum_{i=1}^N\exp(B_i\times C_i)}
+\end{equation}
+\subsection{Channel attention module(CAM)}
+如图\ref{cam}所示表示的是DANet中Channel attention module的示意图。高层特征的每个通道可以被视为一个特定类别的响应，不同语义响应相互联系。通过利用不同通道间的依赖关系，可以增强相互依赖的特征通道并且改进特征语义的特征表达。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/cam}
+	\caption{\label{cam}DANet Channel attention module 示意图}
+\end{figure}
+先对$A$进行reshape到$(C\times N)$，然后$A$与$A^T$进行矩阵乘，经过softmax后得到通道间的map $X(C\times C)$，之后再乘以$A(C\times N)$得到的输出乘以尺度因子$\beta$后与原图相加后获得最后的输出$E$。计算出来的$X$矩阵同样起到attention作用，它的每一行计算的是某一个通道与其他通道之间的依赖关系，数值被softmax概率化到0-1之间，值越大，依赖性越强。将attention与$A$相乘，选择性的将依赖性强的通道进行了整合，改进了语义特征表达。建模了不同通道间的长距离语义依赖。
+
+\subsection{实验结果}
+首先在Cityscapes验证集上给出了使用PAM模块、CAM模块和未使用的分割效果图如图\ref{pamres}和\ref{camres}所示，直观上就可以看出在使用PAM和CAM模块之后对分割效果有很大的提升。
+\begin{figure}[!h]
+	\centering
+	\begin{minipage}[t]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/pamres}
+		\caption{\label{pamres}在Cityscapes验证集上使用PAM模块和未使用PAM模块分割效果对比图}
+	\end{minipage}
+	\begin{minipage}[t]{0.48\textwidth}
+		\centering
+		\includegraphics[width=\textwidth]{images/camres}
+		\caption{\label{camres}在Cityscapes验证集上使用CAM模块和未使用CAM模块分割效果对比图}
+	\end{minipage}
+\end{figure}
+
+然后在Cityscapes测试集上与之前提到的各种方法进行对比，得到实验结果表如图\ref{DANetres}所示，从表中我们可以看出，DANet的Mean IoU指标超越了之前所有的分割算法，可以说明引入这两个注意力机制的模块给图像分割效果带来了一定的提升。
+\begin{figure}[!h]
+	\centering
+	\includegraphics[width=\textwidth]{images/DANetres}
+	\caption{\label{DANetres}DANet与其他分割算法在Cityscapes测试集上分割效果对比}
+\end{figure}
+
+
 \section{AUNet}
-Attention-guided Unified Network for Panoptic Segmentation\cite{li2018attention} 是CVPR2019上的文章。中国科学院自动化研究所所做关于全景分割问题。本文提出了一个叫做 Attention-guided Unified Network (AUNet) 的结构去解决全景分割问题，该方法在MS-COCO数据集上取得了目前最好的结果。
+在综述最后阅读了一篇关于全景分割的文章，Attention-guided Unified Network for Panoptic Segmentation\cite{li2018attention} 是CVPR2019上的文章。中国科学院自动化研究所所做关于全景分割问题。本文提出了一个叫做 Attention-guided Unified Network (AUNet) 的结构去解决全景分割问题，该方法在MS-COCO数据集上取得了目前最好的结果。
 
 本篇文章涉及到一种新的图像分割方式——图像全景分割(Panoptic Segmentation)。全景分割是一个比较新的分割概念，是指的对目标区域做实例分割(Instance Segmentation)，对背景区域做语义分割(Semantic Segmentation)。如图\ref{paseg}所示，图(a)表示输入图片；图(b)表示全景分割的图片，可以看出，很多人在沙滩上放风筝，其中人和风筝是前景，而天空沙滩和远处的森林是背景，在背景的分割中，我们需要区分哪里是沙滩、天空和森林就行了，不需要具体指出有几棵树分别在哪里也就是所谓的语义分割。在前景的分各种，我们不仅仅要指出哪些是人，同时还要把不同的人区分标记，即要数出一共有几个人(这里人就是所谓的实例)也就是实例分割；图(c)表示对前景照片进行实例分割的结果；图(d)表示对背景图进行语义分割的结果。
 
@@ -669,70 +834,12 @@ PQ=\underbrace{\frac{\sum_{(p,q)\in TP}IoU(p,q)}{|TP|}}_{\mbox{segmentation qual
 	\caption{\label{aunetres3}AUNet在MS-COCO验证集上的结果示意图}
 \end{figure}
 
-\section{DANet}
-论文Dual Attention Network for Scene Segmentation\cite{fu2018dual}是CVPR 2019上的文章。本篇文章提出了一种使用注意力机制来提高图像语义分割效果的算法，达到了state-of-the-art的水平，主要有两个创新的模块：
-\begin{itemize}
-	\item \textbf{Position attention module}：捕获特征图的任意两个位置之间的空间依赖，对于某个特定的特征，被所有位置上的特征加权和更新。权重为相应的两个位置之间的特征相似性。因此，任何两个现有相似特征的位置可以相互贡献提升，而不管它们之间的距离。
-	\item \textbf{Channel attention module}：捕获任意两个通道之间的相互依赖，利用所有通道的加权和更新某个通道的值。
-\end{itemize}
-
-\subsection{网络结构}
-如图\ref{danet}所示的为DANet设计的网络结构示意图，左侧ResNet部分使用了上一章提到的带有空洞卷积的全卷积网络，在ResNet之后引入两个注意力机制的模块，最后将两个模块的结果进行sum，得到最终的结果。
-\begin{figure}[!h]
-	\centering
-	\includegraphics[width=\textwidth]{images/danet}
-	\caption{\label{danet}DANet网络结构示意图}
-\end{figure}
-
-\subsection{Position attention module(PAM)}
-如图\ref{pam2}所示是DANet中Position Attention模块的示意图，上下文关系对于场景理解是重要的，旨在捕获全局依赖而无论距离位置。为了建模更丰富的局部上下文依赖，提出PAM模块，编码更宽的上下文依赖到局部特征。
-\begin{figure}[!h]
-	\centering
-	\includegraphics[width=\textwidth]{images/pam2}
-	\caption{\label{pam2}DANet Position attention module 示意图}
-\end{figure}
-具体地，对于网络输出的局部特征$A(C\times H\times W)$，首先利用三个卷积层后得到$B,C,D$三个feature map。然后，对$B,C,D$分别reshape到$(C\times N)$，然后将$B$的转置与$C$相乘后，再通过softmax得到spatial attention map $S(N,N)$，接着，将$S$的转置与$D$矩阵乘后，将结果reshape到$(C\times H\times W)$，乘以一个尺度因子后再加上原始输入图像得到最后的输出map $E$。其中，$S$矩阵的各个元素计算如式(\ref{eq_s})所示，$s_{ji}$表示位置$i$对位置$j$的影响。求出的$S$矩阵相当于一个attention，它的每一行计算的是，所有像素与某个像素之间的依赖关系，使用softmax的作用是类似于分类，softmax值越大，说明更可信。而相对的依赖性也更强。因此，S矩阵的所有行表示了像素与其他像素的依赖关系。注意：在计算$S$时，某个像素特征值使用的是通道维度的值，不是单一的某个通道。最后将attention与原始map相乘，即将所有位置的加权和更新原像素特征值，相当于利用学习到的长距离依赖关系，作用于原始map，选择性的加强局部特征的全局依赖关系。
-\begin{equation}
-\label{eq_s}
-s_{ji}=\frac{\exp(B_i\times C_i)}{\sum_{i=1}^N\exp(B_i\times C_i)}
-\end{equation}
-\subsection{Channel attention module(CAM)}
-如图\ref{cam}所示表示的是DANet中Channel attention module的示意图。高层特征的每个通道可以被视为一个特定类别的响应，不同语义响应相互联系。通过利用不同通道间的依赖关系，可以增强相互依赖的特征通道并且改进特征语义的特征表达。
-\begin{figure}[!h]
-	\centering
-	\includegraphics[width=\textwidth]{images/cam}
-	\caption{\label{cam}DANet Channel attention module 示意图}
-\end{figure}
-先对$A$进行reshape到$(C\times N)$，然后$A$与$A^T$进行矩阵乘，经过softmax后得到通道间的map $X(C\times C)$，之后再乘以$A(C\times N)$得到的输出乘以尺度因子$\beta$后与原图相加后获得最后的输出$E$。计算出来的$X$矩阵同样起到attention作用，它的每一行计算的是某一个通道与其他通道之间的依赖关系，数值被softmax概率化到0-1之间，值越大，依赖性越强。将attention与$A$相乘，选择性的将依赖性强的通道进行了整合，改进了语义特征表达。建模了不同通道间的长距离语义依赖。
-
-\subsection{实验结果}
-首先在Cityscapes验证集上给出了使用PAM模块、CAM模块和未使用的分割效果图如图\ref{pamres}和\ref{camres}所示，直观上就可以看出在使用PAM和CAM模块之后对分割效果有很大的提升。
-\begin{figure}[!h]
-	\centering
-	\begin{minipage}[t]{0.48\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{images/pamres}
-		\caption{\label{pamres}在Cityscapes验证集上使用PAM模块和未使用PAM模块分割效果对比图}
-	\end{minipage}
-	\begin{minipage}[t]{0.48\textwidth}
-		\centering
-		\includegraphics[width=\textwidth]{images/camres}
-		\caption{\label{camres}在Cityscapes验证集上使用CAM模块和未使用CAM模块分割效果对比图}
-	\end{minipage}
-\end{figure}
-
-然后在Cityscapes测试集上与之前提到的各种方法进行对比，得到实验结果表如图\ref{DANetres}所示，从表中我们可以看出，DANet的Mean IoU指标超越了之前所有的分割算法，可以说明引入这两个注意力机制的模块给图像分割效果带来了一定的提升。
-\begin{figure}[!h]
-	\centering
-	\includegraphics[width=\textwidth]{images/DANetres}
-	\caption{\label{DANetres}DANet与其他分割算法在Cityscapes测试集上分割效果对比}
-\end{figure}
 \chapter{总结}
 从近几年的图像分割方向的论文来看，主要都是采用了深度学习的方法，并且网络结构越来越复杂。刚开始只是将全连接层改变为卷积层得到了全卷积网络，然后对卷积层进行了一系列的修改以提高图像分割的效果。当加入更进一步的信息(例如深度信息)之后，卷积操作也改变为Depth-aware的卷积操作。
 
 可以发现，图像分割方向的论文都是在吸取前人算法优点的基础上提出了新的算法来获得好的分割效果，从FCN开始，之后的所有算法都采用了FCN中提出的全卷积网络，从空洞卷积提出开始，后续的文章也在空洞卷积的基础上进行了一系列的改进，当然也有被舍弃的特性，比如CRF，在DeepLab v1和v2中使用的条件随机场，在DeepLab v3中舍弃了条件随机场并且效果也没有降低，我们可以猜测，在DeepLab v3中如果还是增加CRF来进行优化，得到的分割效果应该会有所提升，但是提升的效果不大，反而加入CRF却带来了很大的计算复杂度，因此DeepLab v3舍弃了CRF。近两年深度学习领域提出了注意力机制，因此在图像分割领域也引入了注意力机制进一步的提升分割效果。图像分割从刚开始研究图像语义分割，到之后研究图像实例分割，近两年出现的图像全景分割，反映了图像分割难度的提升，也反映了图像分割算法的提升。
 
-图像分割是计算机视觉领域一个很重要的分支，我觉得未来图像分割方向的发展也是综合各种算法来进行分割，并且可以将深度学习之中的新特性也加入其中，使用集成学习的方式来获得更好的分割效果。目前分割的指标已经较高了，未来可能会在改变卷积结构、集成多种模型等方面进一步的提升分割特性，并且可以从图像分割的应用方面(如医疗领域、自动驾驶等)提出更多有用的方法。
+图像分割是计算机视觉领域一个很重要的分支，我觉得未来图像分割方向的发展也是综合各种算法来进行分割，并且可以将深度学习之中的新特性也加入其中，使用集成学习的方式来获得更好的分割效果。目前分割的指标已经较高了，未来可能会在改变卷积结构、集成多种模型等方面进一步的提升分割特性，并且可以从图像分割的应用方面(如医疗领域、自动驾驶等)提出更多有用的方法，也可以在实时图像分割等方面进行创新。
 
 \bibliographystyle{unsrt}
 \bibliography{cite}
